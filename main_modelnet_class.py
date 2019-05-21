@@ -13,25 +13,26 @@ import binvox
 from dcgan import DCGAN
 
 config = {
-    "x": 38,
-    "y": 38,
-    "z": 38,
+    "x": 32,
+    "y": 32,
+    "z": 32,
     "img_C": 1,
     "lr_D": 0.000025,#1e-4,
-    "lr_G": 0.0003
+    "lr_G": 1e-4#0.0003
 }
 
 total_epoch = 1000
-batch_size = 64
+batch_size = 32
 n_noise = 500
 
-log_dir = './train_log5/'
+log_dir = './train_log10/'
+out_dir = './out/'
 saving_cycle = 1
-start_epoch = 0
+start_epoch = 235
 
 def get_noise(batch_size, n_noise):                                                                                 
-    return np.random.uniform(-1.0, 1.0, size=[batch_size, n_noise])
-
+    return np.random.uniform(0.0, 1.0, size=[batch_size, n_noise]).astype(np.float32)
+#    return np.random.normal( size = ( batch_size, 1, 1, n_noise ) )
 def get_moving_noise(batch_size, n_noise):
     assert batch_size > 0
  
@@ -74,7 +75,7 @@ def save_binvox(filename, data):
 #X_train = data['X_train'][621:1510] # chair
 
 
-data = np.load('modelnet10_chair.npz')
+data = np.load('modelnet10_chair3.npz')
 X_train = data['X_train'] # chair
 #X_train, Y_train = shuffle(data['X_train'], data['y_train'])
 #X_test, Y_test = shuffle(data['X_test'], data['y_test'])
@@ -103,8 +104,8 @@ sess.run(tf.global_variables_initializer())
 
 #%%
 """ train1 """
-if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
+if not os.path.exists(log_dir): os.makedirs(log_dir)
+if not os.path.exists(out_dir): os.makedirs(out_dir)
     
 total_batch = int(len(X_train)/batch_size) + 1
  
@@ -132,34 +133,36 @@ for epoch in range(start_epoch,total_epoch):
 #    if(epoch % saving_cycle == 0):   
         model.save(sess, log_dir, epoch)
     
-        sample_size = 10
+        sample_size = 1
         noise = get_noise(sample_size, n_noise)
         samples = sess.run(model.G, feed_dict={Z: noise, is_training: False})
         print(samples.min(), samples.max())
+           
+        save_binvox(out_dir + "{}.binvox".format(epoch), samples[0, :, :, :, 0] > 0.9)
 #        test_noise = get_moving_noise(sample_size, n_noise)
 #        test_samples = sess.run(model.G, feed_dict={Z: test_noise, is_training: False})
-        path = "out5/{}/".format(epoch)
-        if not os.path.exists(path): os.makedirs(path)
-        
-        for i, data in enumerate(samples):
-            save_binvox(path + "{}.binvox".format(i), data[:, :, :, 0] > 0.9)
+#        path = "out8/{}/".format(epoch)
+#        if not os.path.exists(path): os.makedirs(path)
+#        
+#        for i, data in enumerate(samples):
+#            save_binvox(path + "{}.binvox".format(i), data[:, :, :, 0] > 0.9)
 
 
 #%%
 """ test """
-#model.load(sess, log_dir) 
-#
-#epoch = 'test'
-#sample_size = 10
-#noise = get_noise(sample_size, n_noise)
-#samples = sess.run(model.G, feed_dict={Z: noise, is_training: False})
-##test_noise = get_moving_noise(sample_size, n_noise)
-##test_samples = sess.run(model.G, feed_dict={Z: test_noise, is_training: False})
-#path = "out4/{}/".format(epoch)
-#if not os.path.exists(path): os.makedirs(path)
-#
-#for i, data in enumerate(samples):
-#    save_binvox(path + "{}.binvox".format(i), data[:, :, :, 0] > 0.9)            
+model.load(sess, log_dir) 
+
+epoch = 'test'
+sample_size = 10
+noise = get_noise(sample_size, n_noise)
+samples = sess.run(model.G, feed_dict={Z: noise, is_training: False})
+#test_noise = get_moving_noise(sample_size, n_noise)
+#test_samples = sess.run(model.G, feed_dict={Z: test_noise, is_training: False})
+path = "out/{}/".format(epoch)
+if not os.path.exists(path): os.makedirs(path)
+
+for i, data in enumerate(samples):
+    save_binvox(path + "{}.binvox".format(i), data[:, :, :, 0] > 0.9)            
 
 
 
