@@ -18,7 +18,7 @@ class DCGAN(Model):
         net_G = Generator()
         net_D = Discriminator()
         
-        G = net_G(noises, is_training)
+        G = net_G(noises, config, is_training)
         self.G = G
         D_real = net_D(inputs, is_training)
         D_fake = net_D(G, is_training, True)
@@ -66,16 +66,18 @@ def lrelu(x, leak=0.2):
 
         
 class Generator(object):
-    def __call__(self, noise, is_training):
+    def __call__(self, noise, config, is_training):
         with tf.variable_scope('generator'):
-            output = tf.layers.dense(noise, 512*4*4*4)
-            output = tf.reshape(output, [-1, 4, 4, 4, 512])
+            output = tf.layers.dense(noise, 512*config["last"]*config["last"]*config["last"])
+            output = tf.reshape(output, [-1, config["last"], config["last"], config["last"], 512])
             output = lrelu(tf.layers.batch_normalization(output, training=is_training))
             output = tf.layers.conv3d_transpose(output, 256, [5, 5, 5], strides=(2, 2, 2), padding='SAME')
             output = lrelu(tf.layers.batch_normalization(output, training=is_training))
             output = tf.layers.conv3d_transpose(output, 128, [5, 5, 5], strides=(2, 2, 2), padding='SAME')
             output = lrelu(tf.layers.batch_normalization(output, training=is_training))
             output = tf.layers.conv3d_transpose(output, 64, [5, 5, 5], strides=(2, 2, 2), padding='SAME')
+            output = lrelu(tf.layers.batch_normalization(output, training=is_training))
+            output = tf.layers.conv3d_transpose(output, 32, [5, 5, 5], strides=(2, 2, 2), padding='SAME')
             output = lrelu(tf.layers.batch_normalization(output, training=is_training))
             output = tf.layers.conv3d_transpose(output, 1, [5, 5, 5], strides=(1, 1, 1), padding='SAME')
             output = tf.nn.sigmoid(output)
@@ -89,18 +91,17 @@ class Discriminator(object):
         with tf.variable_scope('discriminator') as scope:
             if reuse:
                 scope.reuse_variables()
-            output = tf.layers.conv3d(inputs, filters=64, kernel_size=[5, 5, 5], strides=(2, 2, 2), padding='SAME')
-            output = self._leaky_relu(output)
+            output = tf.layers.conv3d(inputs, filters=32, kernel_size=[5, 5, 5], strides=(2, 2, 2), padding='SAME')
+            output = lrelu(output)
+            output = tf.layers.conv3d(output, filters=64, kernel_size=[5, 5, 5], strides=(2, 2, 2), padding='SAME')
+            output = lrelu(tf.layers.batch_normalization(output, training=is_training))
             output = tf.layers.conv3d(output, filters=128, kernel_size=[5, 5, 5], strides=(2, 2, 2), padding='SAME')
-            output = self._leaky_relu(tf.layers.batch_normalization(output, training=is_training))
+            output = lrelu(tf.layers.batch_normalization(output, training=is_training))
             output = tf.layers.conv3d(output, filters=256, kernel_size=[5, 5, 5], strides=(2, 2, 2), padding='SAME')
-            output = self._leaky_relu(tf.layers.batch_normalization(output, training=is_training))
+            output = lrelu(tf.layers.batch_normalization(output, training=is_training))
             output = tf.layers.conv3d(output, filters=512, kernel_size=[5, 5, 5], strides=(2, 2, 2), padding='SAME')
-            output = self._leaky_relu(tf.layers.batch_normalization(output, training=is_training))
+            output = lrelu(tf.layers.batch_normalization(output, training=is_training))
             flat = tf.contrib.layers.flatten(output)
             output = tf.layers.dense(flat, 1, activation=None)
             return output
-            
 
-    def _leaky_relu(self, x, leak=0.2):
-        return tf.maximum(x, x * leak)

@@ -8,27 +8,27 @@ Created on Thu May 16 10:55:37 2019
 import os
 import tensorflow as tf
 import numpy as np
-from sklearn.utils import shuffle
 import binvox
 from dcgan import DCGAN
 
 config = {
-    "x": 32,
-    "y": 32,
-    "z": 32,
+    "x": 64,
+    "y": 64,
+    "z": 64,
     "img_C": 1,
+    "last": 4,
     "lr_D": 0.000025,#1e-4,
     "lr_G": 1e-4#0.0003
 }
 
 total_epoch = 1000
-batch_size = 32
+batch_size = 16
 n_noise = 500
 
-log_dir = './train_log10/'
+log_dir = './train_log/'
 out_dir = './out/'
 saving_cycle = 1
-start_epoch = 235
+start_epoch = 0
 
 def get_noise(batch_size, n_noise):                                                                                 
     return np.random.uniform(0.0, 1.0, size=[batch_size, n_noise]).astype(np.float32)
@@ -37,8 +37,8 @@ def get_moving_noise(batch_size, n_noise):
     assert batch_size > 0
  
     noise_list = []
-    base_noise = np.random.uniform(-1.0, 1.0, size=[n_noise])
-    end_noise = np.random.uniform(-1.0, 1.0, size=[n_noise])
+    base_noise = np.random.uniform(0.0, 1.0, size=[n_noise])
+    end_noise = np.random.uniform(0.0, 1.0, size=[n_noise])
  
     step = (end_noise - base_noise) / batch_size
     noise = np.copy(base_noise)
@@ -71,17 +71,8 @@ def save_binvox(filename, data):
         model.write(f)
 
 """ load data """ 
-#data = np.load('modelnet10.npz')
-#X_train = data['X_train'][621:1510] # chair
-
-
-data = np.load('modelnet10_chair3.npz')
-X_train = data['X_train'] # chair
-#X_train, Y_train = shuffle(data['X_train'], data['y_train'])
-#X_test, Y_test = shuffle(data['X_test'], data['y_test'])
-
-#X_train.shape   # (3991, 30, 30, 30)
-#X_test.shape    # (908, 30, 30, 30)
+data = np.load('modelnet10_bed.npz')
+X_train = data['X_train'] 
 
 
 """ build model """
@@ -110,7 +101,8 @@ if not os.path.exists(out_dir): os.makedirs(out_dir)
 total_batch = int(len(X_train)/batch_size) + 1
  
 for epoch in range(start_epoch,total_epoch):
-    
+    epoch_loss_D = []
+    epoch_loss_G = []
     for i in range(total_batch):
         batch_xs = X_train[i*batch_size: (i+1)*batch_size]
         batch_xs = batch_xs.reshape(-1, config['x'], config['y'], config['z'], 1)
@@ -120,11 +112,16 @@ for epoch in range(start_epoch,total_epoch):
             feed_dict={X: batch_xs, Z: noise, is_training: True})
         _, loss_val_G = sess.run([model.train_G, model.loss_G],
             feed_dict={X: batch_xs, Z: noise, is_training: True})
+        
+        epoch_loss_D.append(loss_val_D)
+        epoch_loss_G.append(loss_val_G)
  
- 
+    epoch_loss_D_mean = sum(epoch_loss_D) / len(epoch_loss_D)
+    epoch_loss_G_mean = sum(epoch_loss_G) / len(epoch_loss_G)
+    
     print('Epoch:', '%04d' % epoch,
-        'D loss: {:.4}'.format(loss_val_D),
-        'G loss: {:.4}'.format(loss_val_G))
+        'D loss: {:.4}'.format(epoch_loss_D_mean),
+        'G loss: {:.4}'.format(epoch_loss_G_mean))
     
     with open(log_dir + "training_loss.txt", "a+") as file:
             file.write("Epoch: %d\t LossD: %f\t LossG: %f\n" % (epoch, loss_val_D, loss_val_G))
@@ -152,7 +149,7 @@ for epoch in range(start_epoch,total_epoch):
 """ test """
 model.load(sess, log_dir) 
 
-epoch = 'test'
+epoch = 'test3'
 sample_size = 10
 noise = get_noise(sample_size, n_noise)
 samples = sess.run(model.G, feed_dict={Z: noise, is_training: False})
@@ -165,5 +162,8 @@ for i, data in enumerate(samples):
     save_binvox(path + "{}.binvox".format(i), data[:, :, :, 0] > 0.9)            
 
 
-
-
+#import matplotlib.pyplot as plt
+#for i, data in enumerate(samples):
+#    plt.hist(data.flatten())
+#    plt.show()
+#    plt.close()
