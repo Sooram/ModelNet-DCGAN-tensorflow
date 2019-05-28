@@ -31,3 +31,6 @@ I also implemented a process call to [the viewvox program](http://www.patrickmin
 ## Results
 The generated objects were not good enough. Need to figure out what went wrong.\
 ![Overview](results/419.PNG)
+
+## Study(paper review)
+https://docs.google.com/presentation/d/1U2lyelslkJVvcj1OfciDYfWCSXjAoOtyMsMDr3b8FAg/edit?usp=sharing
